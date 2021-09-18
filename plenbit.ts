@@ -966,7 +966,7 @@ namespace plenbit {
             let servoInitValue = servoInitArray[i]
             WriteEEPROM(i * 2 + 2, (servoInitValue >> 8) & 0xFF)
             WriteEEPROM(i * 2 + 3, servoInitValue & 0xFF)
-            basic.pause(10)
+            basic.pause(25)
         }
     }
 
