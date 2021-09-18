@@ -138,7 +138,7 @@ namespace plenbit {
 
   let motionSpeed = 20;
   //[1000, 900, 300, 900, 800, 900, 1500, 900];good angle
-  export let servoInitArry = [1000, 630, 300, 600, 240, 600, 1000, 720, 900, 900, 900, 900];
+  export let servoInitArray = [1000, 630, 300, 600, 240, 600, 1000, 720, 900, 900, 900, 900];
   const servoReverse = [false, false, false, false, false, false, false, false, true, true, true, true]; //サーボ反転
   let servoAngle = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
   let SERVO_NUM_USED = 8;
