@@ -174,9 +174,9 @@ namespace plenbit {
     export function initPCA9865() { // PCA9685の初期設定
         if (readPCA9865(0xFE) != 0x00) { // PRE_SCALEが読み取れる <=> PCA9865が接続済み
             initPCA9865Flag = true
-            writePCA9865(0x00, 0x11) // Sleep modeをONにして、内部クロックを停止
+            writePCA9865(0x00, 0x10) // Sleep modeをONにして、内部クロックを停止
             writePCA9865(0xFE, 0x85) // PRE_SCALEを設定　※ cf.P13 Writes to PRE_SCALE register are blocked when SLEEP bit is logic 0 (MODE 1)
-            writePCA9865(0x00, 0x01) // Sleep modeをOFFにして、内部クロックをPRE_SCALEで動かす　ALLCALLを有効にして、I2Cアドレスを参照できるようにする
+            writePCA9865(0x00, 0x00) // Sleep modeをOFFにして、内部クロックをPRE_SCALEで動かす
 
             writePCA9865(0xFA, 0x00) // ALL_LED_ON_L　全PWMのONのタイミングを0にする
             writePCA9865(0xFB, 0x00) // ALL_LED_ON_H　　　　　　　〃
