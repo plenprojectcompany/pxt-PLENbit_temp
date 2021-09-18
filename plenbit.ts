@@ -201,7 +201,7 @@ namespace plenbit {
       if (ReadEEPROM(0x00, 1)[0] == 0x01) {　 // サーボ初期位置調整済み
         let readBuf = ReadEEPROM(0x02, 16)
         for (let i = 0; i < 8; i++) {
-          servoInitArry[i] = (readBuf[i * 2] << 8) | (readBuf[i * 2 + 1])
+          servoInitArray[i] = (readBuf[i * 2] << 8) | (readBuf[i * 2 + 1])
         }
       }
     }
@@ -765,7 +765,7 @@ namespace plenbit {
     if (initEEPROMFlag == false) initEEPROM()
     if (initPCA9865Flag == false) initPCA9865()
     let highByte = false;
-    let pwmVal = (servoInitArry[num] / 10 - degrees) * 100 * 226 / 10000
+    let pwmVal = (servoInitArray[num] / 10 - degrees) * 100 * 226 / 10000
     if (pwmVal < 0) pwmVal = 0
     if (pwmVal > 384) pwmVal = 384
     pwmVal = Math.round(pwmVal) + 0x66;
@@ -803,7 +803,7 @@ namespace plenbit {
     } else {
       writePCA9865(servoNum + num * 4 + 1, 0x00);
     }
-    servoAngle[num] = servoInitArry[num] / 10 - degrees
+    servoAngle[num] = servoInitArray[num] / 10 - degrees
   }
 
   /**
@@ -963,7 +963,7 @@ namespace plenbit {
   export function savePosition() {
     WriteEEPROM(0, 1) // サーボ初期位置調整フラグ
     for(let i = 0; i < 8 ;i++){
-      let servoInitValue = servoInitArry[i]
+      let servoInitValue = servoInitArray[i]
       WriteEEPROM(i * 2 + 2, (servoInitValue >> 8) & 0xFF)
       WriteEEPROM(i * 2 + 3, servoInitValue & 0xFF)
     }
