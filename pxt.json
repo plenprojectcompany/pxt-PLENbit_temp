@@ -1,10 +1,10 @@
 {
     "name": "pxt-plenbit",
-    "version": "1.0.7",
+    "version": "1.0.4",
     "description": "plenbit",
     "dependencies": {
         "core": "*",
-        "neopixel": "github:microsoft/pxt-neopixel"
+        "neopixel": "github:microsoft/pxt-neopixel#v0.7.3"
     },
     "files": [
         "README.md",
