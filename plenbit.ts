@@ -138,18 +138,13 @@ namespace plenbit {
 
     let motionSpeed = 20;
     //[1000, 900, 300, 900, 800, 900, 1500, 900];good angle
-    export let servoInitArray = [1000, 630, 300, 600, 240, 600, 1000, 720, 900, 900, 900, 900];
-    let servoInitArraySave:number[] = []
-    for (let i = 0; i < servoInitArray.length; i++) servoInitArraySave.push(servoInitArray[i])
+    export let servoSetInit = [1000, 630, 300, 600, 240, 600, 1000, 720, 900, 900, 900, 900];
     const servoReverse = [false, false, false, false, false, false, false, false, true, true, true, true]; //サーボ反転
     let servoAngle = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     let SERVO_NUM_USED = 8;
     let romAdr1 = 0x56;
     let initBle = false;
-    const eepromAdr = 0x56;
-    const PCA9865Adr = 0x6A;
-    let initEEPROMFlag = false;
-    let initPCA9865Flag = false;
+    let initPCA9865 = false;
     let walkingMode = 0;
     let pleEyeRGB = neopixel.rgb(0, 255, 0)
     let plenStrip: neopixel.Strip = null
@@ -161,70 +156,31 @@ namespace plenbit {
     let humidity = 0
 
     // 初期化
+    loadPos();
     servoInitialSet()
-    eyeLed(LedOnOff.On)
-    setEyeBrightness(20)
-    setColorRGB(0, 255, 0)
+    eyeLed(LedOnOff.On);
+    setEyeBrightness(20);
+    setColorRGB(0, 255, 0);
     basic.pause(500)
     servoFree()
 
     // 検査用フラグ
     export let Test_isTHsensorSuccess: boolean = false
 
-    export function initPCA9865() { // PCA9685の初期設定
-        if (readPCA9865(0xFE) != 0x00) { // PRE_SCALEが読み取れる <=> PCA9865が接続済み
-            initPCA9865Flag = true
-            writePCA9865(0x00, 0x10) // Sleep modeをONにして、内部クロックを停止
-            writePCA9865(0xFE, 0x85) // PRE_SCALEを設定　※ cf.P13 Writes to PRE_SCALE register are blocked when SLEEP bit is logic 0 (MODE 1)
-            writePCA9865(0x00, 0x00) // Sleep modeをOFFにして、内部クロックをPRE_SCALEで動かす
-
-            writePCA9865(0xFA, 0x00) // ALL_LED_ON_L　全PWMのONのタイミングを0にする
-            writePCA9865(0xFB, 0x00) // ALL_LED_ON_H　　　　　　　〃
-            writePCA9865(0xFC, 0x00) // ALL_LED_OFF_L　全PWMのOFFのタイミングを0にする
-            writePCA9865(0xFD, 0x00) // ALL_LED_OFF_H　　　　　　　〃
-        }
+    export function secretIncantation() {
+        write8(0xFE, 0x85);//PRE_SCALE
+        write8(0xFA, 0x00);//ALL_LED_ON_L
+        write8(0xFB, 0x00);//ALL_LED_ON_H
+        write8(0xFC, 0x66);//ALL_LED_OFF_L
+        write8(0xFD, 0x00);//ALL_LED_OFF_H
+        write8(0x00, 0x01);
     }
 
-    function readPCA9865(addr: number) {
-        pins.i2cWriteNumber(PCA9865Adr, addr, NumberFormat.UInt8LE, false)
-        return pins.i2cReadNumber(PCA9865Adr, NumberFormat.UInt8LE, false)
-    }
-
-    function writePCA9865(addr: number, d: number) {
+    function write8(addr: number, d: number) {
         let cmd = pins.createBuffer(2);
         cmd[0] = addr;
         cmd[1] = d;
-        pins.i2cWriteBuffer(PCA9865Adr, cmd, false);
-    }
-
-    function initEEPROM() { // EEPROMのサーボ初期位置設定を反映する
-        if (ReadEEPROM(0x32, 1)[0] != 0x00) { // モーションデータが読み取れる <=> EEPROMが接続済み
-            initEEPROMFlag = true
-            if (ReadEEPROM(0x00, 1)[0] == 0x01) {　 // サーボ初期位置調整済み
-                let readBuf = ReadEEPROM(0x02, 16)
-                for (let i = 0; i < 8; i++) {
-                    servoInitArray[i] = (readBuf[i * 2] << 8) | (readBuf[i * 2 + 1])
-                }
-            }
-        }
-    }
-
-    export function ReadEEPROM(eepAdr: number, num: number) {
-        let data = pins.createBuffer(2);
-        data[0] = eepAdr >> 8;
-        data[1] = eepAdr & 0xFF;
-        // need adr change code
-        pins.i2cWriteBuffer(eepromAdr, data);
-        return pins.i2cReadBuffer(eepromAdr, num, false);
-    }
-
-    function WriteEEPROM(eepAdr: number, num: number) {
-        let data = pins.createBuffer(3);
-        data[0] = eepAdr >> 8;
-        data[1] = eepAdr & 0xFF;
-        data[2] = num;
-        pins.i2cWriteBuffer(eepromAdr, data);
-        basic.pause(5)
+        pins.i2cWriteBuffer(0x6A, cmd, false);
     }
 
     function motionFlame(fileName: number, flameNum: number) {
@@ -237,16 +193,16 @@ namespace plenbit {
         let listLen = 43;
         let loopBool = false;
         let plenDebug: boolean = false;
-        if (flameNum == 0xFF) {
+        if (flameNum == 0xff) {
             flameNum = 0;
             loopBool = true;
         }
         let readAdr = 0x32 + 860 * fileName + flameNum * listLen;
         let error = 0;
         while (1) {
-            let mBuf = ReadEEPROM(readAdr, listLen);
+            let mBuf = reep(readAdr, listLen);
             readAdr += listLen;
-            if (mBuf[0] == 0xFF) break;
+            if (mBuf[0] == 0xff) break;
             let mf = "";    //=null ?
             let listNum = 0;
             if (command != mBuf[listNum]) break;
@@ -265,7 +221,7 @@ namespace plenbit {
                 if (numHex >= 0x7fff) {
                     numHex = numHex - 0x10000;
                 } else {
-                    numHex = numHex & 0xFFff;
+                    numHex = numHex & 0xffff;
                 }
                 data[val] = numHex / 10;
                 if (plenDebug) serial.writeNumber(data[val]);
@@ -304,6 +260,26 @@ namespace plenbit {
             }
         }
         return i;
+    }
+
+    function weep(eepAdr: number, num: number) {
+        let data = pins.createBuffer(3);
+        data[0] = eepAdr >> 8;
+        data[1] = eepAdr & 0xFF;
+        data[2] = num;
+        pins.i2cWriteBuffer(romAdr1, data);
+        basic.pause(10);
+        return 0;
+    }
+
+    function loadPos() {
+        let readBuf = reep(0x00, 1);
+        if (readBuf[0] == 0x01) {
+            readBuf = reep(0x02, 16);
+            for (let i = 0; i < 8; i++) {
+                servoSetInit[i] = (readBuf[i * 2] << 8) | (readBuf[i * 2 + 1]);
+            }
+        }
     }
 
     function parseIntM(str: string) {
@@ -749,7 +725,7 @@ namespace plenbit {
     //% fileName.min=0 fileName.max=73 fileName.defl=0
     //% weight=10 group="Servo" advanced=true
     export function motion(fileName: number) {
-        doMotion(fileName, 0xFF);
+        doMotion(fileName, 0xff);
         servoFree()
     }
 
@@ -764,22 +740,26 @@ namespace plenbit {
     //% weight=8 group="Servo" advanced=true
     export function servoWriteInit(num: number, degrees: number) {
         let servoNum = 0x08;
-        if (servoReverse[num]) degrees *= -1
-        if (initEEPROMFlag == false) initEEPROM()
-        if (initPCA9865Flag == false) initPCA9865()
+        if (servoReverse[num]) {
+            degrees *= -1;
+        }
+        if (initPCA9865 == false) {
+            secretIncantation();
+            initPCA9865 = true;
+        }
         let highByte = false;
-        let pwmVal = (servoInitArray[num] / 10 - degrees) * 100 * 226 / 10000
+        let pwmVal = (servoSetInit[num] / 10 - degrees) * 100 * 226 / 10000
         if (pwmVal < 0) pwmVal = 0
         if (pwmVal > 384) pwmVal = 384
         pwmVal = Math.round(pwmVal) + 0x66;
         if (pwmVal > 0xFF) {
             highByte = true;
         }
-        writePCA9865(servoNum + num * 4, pwmVal);
+        write8(servoNum + num * 4, pwmVal);
         if (highByte) {
-            writePCA9865(servoNum + num * 4 + 1, 0x01);
+            write8(servoNum + num * 4 + 1, 0x01);
         } else {
-            writePCA9865(servoNum + num * 4 + 1, 0x00);
+            write8(servoNum + num * 4 + 1, 0x00);
         }
         servoAngle[num] = degrees
     }
@@ -792,21 +772,23 @@ namespace plenbit {
     //% deprecated=true
     export function servoWrite(num: number, degrees: number) {
         let servoNum = 0x08;
-        if (initEEPROMFlag == false) initEEPROM()
-        if (initPCA9865Flag == false) initPCA9865()
+        if (initPCA9865 == false) {
+            secretIncantation();
+            initPCA9865 = true;
+        }
         let highByte = false;
         let pwmVal = degrees * 100 * 226 / 10000;
         pwmVal = Math.round(pwmVal) + 0x66;
         if (pwmVal > 0xFF) {
             highByte = true;
         }
-        writePCA9865(servoNum + num * 4, pwmVal);
+        write8(servoNum + num * 4, pwmVal);
         if (highByte) {
-            writePCA9865(servoNum + num * 4 + 1, 0x01);
+            write8(servoNum + num * 4 + 1, 0x01);
         } else {
-            writePCA9865(servoNum + num * 4 + 1, 0x00);
+            write8(servoNum + num * 4 + 1, 0x00);
         }
-        servoAngle[num] = servoInitArray[num] / 10 - degrees
+        servoAngle[num] = servoSetInit[num] / 10 - degrees
     }
 
     /**
@@ -857,10 +839,13 @@ namespace plenbit {
     //% deprecated=true
     export function servoFree() {
         //Power Free!
-        writePCA9865(0xFA, 0x00) // ALL_LED_ON_L　全PWMのONのタイミングを0にする
-        writePCA9865(0xFB, 0x00) // ALL_LED_ON_H　　　　　　　〃
-        writePCA9865(0xFC, 0x00) // ALL_LED_OFF_L　全PWMのOFFのタイミングを0にする
-        writePCA9865(0xFD, 0x00) // ALL_LED_OFF_H　　　　　　　〃
+        write8(0xFA, 0x00);
+        write8(0xFB, 0x00);
+        write8(0xFC, 0x00);
+        write8(0xFD, 0x00);
+        write8(0x00, 0x01);
+        //write8(0x00, 0x80);
+        initPCA9865 == false;
     }
 
     /**
@@ -958,27 +943,56 @@ namespace plenbit {
     }
 
     //初期位置調整
+
+    //% blockId=PLEN:bit_reep
+    //% block="readEEPROM %eepAdr| byte%num"
+    //% eepAdr.min=910 eepAdr.max=2000
+    //% num.min=0 num.max=43
+    //% weight=10 group="Servo Adjust" advanced=true
+    //% deprecated=true
+    export function reep(eepAdr: number, num: number) {
+        let data = pins.createBuffer(2);
+        data[0] = eepAdr >> 8;
+        data[1] = eepAdr & 0xFF;
+        // need adr change code
+        pins.i2cWriteBuffer(romAdr1, data);
+        return pins.i2cReadBuffer(romAdr1, num, false);
+    }
+
     //% block
-    //% blockId=PLEN:bit_ServoAdjust_Save
-    //% block="save servo position"
     //% weight=9 group="Servo Adjust" advanced=true
     //% deprecated=true
-    export function savePosition() {
-        WriteEEPROM(0, 1) // サーボ初期位置調整フラグ
-        for (let i = 0; i < 8; i++) {
-            let servoInitValue = servoInitArray[i]
-            WriteEEPROM(i * 2 + 2, (servoInitValue >> 8) & 0xFF)
-            WriteEEPROM(i * 2 + 3, servoInitValue & 0xFF)
+    export function savePositon(servoNum: number, adjustNum: number) {
+        adjustNum = servoSetInit[servoNum] + adjustNum;
+        weep(0, 1);    //write flag
+        weep(servoNum * 2 + 2, (adjustNum & 0xff00) >> 8);
+        weep(servoNum * 2 + 3, adjustNum & 0xff);
+    }
+
+    //% block
+    //% weight=8 group="Servo Adjust" advanced=true
+    //% deprecated=true
+    export function resetPosition() {
+        weep(0, 0);    //write flag reset
+        for (let n = 0; n < 8; n++) {
+            weep(n * 2 + 2, (servoSetInit[n] & 0xff00) >> 8);
+            weep(n * 2 + 3, servoSetInit[n] & 0xff);
         }
     }
 
     //% block
-    //% blockId=PLEN:bit_ServoAdjust_Reset
-    //% block="reset servo position"
-    //% weight=8 group="Servo Adjust" advanced=true
+    //% weight=7 group="Servo Adjust" advanced=true
     //% deprecated=true
-    export function resetPosition() {
-        WriteEEPROM(0, 0) // サーボ初期位置調整フラグ
-        for (let i = 0; i < servoInitArray.length; i++) servoInitArray[i] = servoInitArraySave[i]
+    export function servoAdjust(servoNum: number, adjustNum: number) {
+        let adjNum = servoSetInit[servoNum] + adjustNum
+        if (100 > adjNum) {
+            adjustNum = adjustNum + 1;
+        } else if (adjNum > 1700) {
+            adjustNum = adjustNum - 1;
+        } else {
+            servoWrite(servoNum, (adjNum / 10));
+            basic.pause(0.5);
+        }
+        return adjustNum;
     }
 }
